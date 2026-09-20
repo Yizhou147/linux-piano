@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: ['piano-*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,20 +33,23 @@ jobs:
           key: ccache-${{ runner.arch }}-${{ github.run_id }}
           restore-keys: ccache-${{ runner.arch }}-
 
-      - name: Build piano_defconfig, Image and dtbs
+      - name: Build piano_defconfig, Image, dtbs and modules
         env:
           # Runner image clang updates must invalidate, not mis-hit
           CCACHE_COMPILERCHECK: content
         run: |
           ccache --zero-stats
           make ARCH=arm64 LLVM=1 CC="ccache clang" O=out piano_defconfig
-          make ARCH=arm64 LLVM=1 CC="ccache clang" O=out -j"$(nproc)" Image dtbs
+          make ARCH=arm64 LLVM=1 CC="ccache clang" O=out -j"$(nproc)" Image dtbs modules
           ccache --show-stats
 
       - name: Verify piano artifacts
         run: |
           test -s out/arch/arm64/boot/Image
           test -s out/arch/arm64/boot/dts/qcom/sm8750-xiaomi-piano.dtb
+          test -s out/drivers/input/touchscreen/nt36532e/nt36532e_ts.ko
+          test -s out/drivers/spi/spi-geni-qcom.ko
+          test -s out/include/generated/utsrelease.h
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -54,5 +58,8 @@ jobs:
           path: |
             out/arch/arm64/boot/Image
             out/arch/arm64/boot/dts/qcom/sm8750-xiaomi-piano.dtb
+            out/drivers/input/touchscreen/nt36532e/nt36532e_ts.ko
+            out/drivers/spi/spi-geni-qcom.ko
+            out/include/generated/utsrelease.h
           retention-days: 7
           if-no-files-found: error
